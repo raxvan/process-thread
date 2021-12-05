@@ -119,8 +119,8 @@ def test_wait_pid():
 	q.push_back(1, _itm)
 	q.push_back(2, _itm) #kill be dropped
 	print_dict(q.query_items())
-	pid = q.wait_for_pid(1)
-	print("----- PID:" + str(pid))
+	pid,_ = q.wait_for_process(1)
+	print("[PID] " + str(pid))
 
 	q.stop()
 

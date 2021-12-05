@@ -120,8 +120,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		return _item_copy
 
 	#wait until process with _id has started and has a pid
-	def wait_for_pid(self, _id, _sleep_interval_fsec = 0.25):
+	def wait_for_process(self, _id, _sleep_interval_fsec = 0.25):
 		pid = None
+		data = None
 		self.work_lock.acquire()
 		if _id in self.active_items:
 			f = thread_worker_queue.TaskFuture()
@@ -131,6 +132,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			while _id in self.active_items:
 				if self.active_work_id == _id:
 					pid = self.active_work_item.get("pid",None)
+					data = copy.deepcopy(self.active_work_item)
 					if pid != None:
 						break;
 
@@ -138,11 +140,15 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				time.sleep(_sleep_interval_fsec)
 				self.work_lock.acquire()
 
-			if pid == None and f.data != None:
-				pid = f.data.get('pid',None)
+			if f.data != None:
+				if pid == None:
+					pid = f.data.get('pid',None)
+
+				if data == None:
+					data = f.data
 
 		self.work_lock.release()
-		return pid
+		return (pid, data)
 
 	#returns the task data
 	def remove_or_kill(self, _id, _sleep_interval_fsec =  0.25):

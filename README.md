@@ -91,7 +91,7 @@ Some of the data from above
 ### Important functions:
 
 - `ProcessQueue.push_back(self, id, data)` add process to queue
-- `ProcessQueue.wait_for_pid(self, id, _sleep_interval_fsec = 0.25)` will wait until the process actually started, will return pid
+- `ProcessQueue.wait_for_process(self, id, _sleep_interval_fsec = 0.25)` will wait until the process actually started, will return (pid,process_data)
 - `ProcessQueue.remove_or_kill(self, id, _sleep_interval_fsec = 0.25)` remove process from queue, or kill if the process started. Returns process data
 - `ProcessQueue.remove(self, id)` removes a process from queue if it's not started
 - `ProcessQueue.query_items(self)` returns a dictionary (key is id, value is process data) of the active state of the queue
