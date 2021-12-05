@@ -42,12 +42,15 @@ class ThreadedWorkQueue(object):
 	def __init__(self):
 		self.queue = queue.Queue()
 
+		self.thread_handle = None
 		self.work_lock = threading.Lock()
 		self.active_items = {}
 		self.active_work_id = None
 		self.active_work_item = None
 
 		self.on_complete_listeners = {}
+
+
 				
 	def start(self):
 		self.thread_handle = threading.Thread(target=lambda e: e.thread_run_loop(), args=(self,), daemon=True)
@@ -107,7 +110,7 @@ class ThreadedWorkQueue(object):
 
 		return result
 
-	def is_active(slf):
+	def is_active(self):
 		if self.thread_handle == None:
 			return False
 

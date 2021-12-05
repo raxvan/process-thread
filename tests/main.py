@@ -71,10 +71,13 @@ class CustomQueue2(process_queue.ProcessQueue):
 
 def test_start_stop():
 	q = process_queue.ProcessQueue("", {})
+	assert(q.is_active() == False)
 	q.start()
+	assert(q.is_active() == False)
 	print_dict(q.create_env(-1,{}))
 	q.wait_for_process(0) #should immediatly return
 	q.stop()
+	assert(q.is_active() == False)
 	for i in range(3):
 		q.start()
 		_itm = {
@@ -82,6 +85,7 @@ def test_start_stop():
 			"cmd" : ["{_SHELL_OPT_}","{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
 		}
 		q.push_back(0, _itm)
+		assert(q.is_active() == True)
 		q.wait_for_empty()
 		q.stop()
 
@@ -135,6 +139,7 @@ def test_valid_command():
 
 def test_command_with_error():
 	q = CustomQueue(_this_dir, {})
+
 	q.start()	
 	_itm = {
 		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/exit_code.{_SHELL_EXT_}"]
@@ -173,6 +178,7 @@ def test_wait_pid():
 	q.push_back(1, _itm)
 	q.push_back(2, _itm) #kill be dropped
 	print_dict(q.query_items())
+	assert(q.is_active() == True)
 	pid,_ = q.wait_for_process(1)
 	print("[PID] " + str(pid))
 
