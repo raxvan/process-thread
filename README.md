@@ -2,9 +2,6 @@
 
 Portable asynchronous process creation queue with streamed output (stdout,stderr). For each queue, processes are started in order, one at a time (first one need to exit for the next one to start).
 
-For python3.8+ both both streams (stdout and stderr) are streamable using asyncio.
-For python versions below 3.8 
-
 ### Dependencies:
 
 - python3.8+ (because of this: https://bugs.python.org/issue35621)
