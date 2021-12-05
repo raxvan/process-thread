@@ -59,42 +59,51 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			self.env['_SHELL_OPT_'] = self.env['_SHELL_']
 
 	def format_working_directory(self, path_str_or_list, env):
-		if path_str_or_list == None:
-			return self.workdir
+		try:
+			if path_str_or_list == None:
+				return self.workdir
 
-		if isinstance(path_str_or_list, str):
-			path_str_or_list = os.path.join(self.workdir, _expand_vars(path_str_or_list, env))
+			if isinstance(path_str_or_list, str):
+				path_str_or_list = os.path.join(self.workdir, _expand_vars(path_str_or_list, env))
 
-		elif isinstance(path_str_or_list, list):
-			l = [_expand_vars(p, env) for p in path_str_or_list]
-			path_str_or_list = os.path.join(self.workdir,*[i for i in l if i])
+			elif isinstance(path_str_or_list, list):
+				l = [_expand_vars(p, env) for p in path_str_or_list]
+				path_str_or_list = os.path.join(self.workdir,*[i for i in l if i])
 
-		_abs_path = os.path.abspath(path_str_or_list)
+			_abs_path = os.path.abspath(path_str_or_list)
 
-		if not self.workdir in _abs_path:
+			if not self.workdir in _abs_path:
+				return None
+
+			if not os.path.exists(_abs_path):
+				os.makedirs(_abs_path)
+			elif os.path.isfile(_abs_path):
+				return None
+
+			return _abs_path
+		except:
 			return None
-
-		if not os.path.exists(_abs_path):
-			os.makedirs(_abs_path)
-		elif os.path.isfile(_abs_path):
-			return None
-
-		return _abs_path
 
 	def format_command(self, cmd_str_or_list, env):
-		if isinstance(cmd_str_or_list, list):
-			l = [_expand_vars(c, env) for c in cmd_str_or_list]
-			return [i for i in l if i]
-		else:
+		try:
+			if isinstance(cmd_str_or_list, list):
+				l = [_expand_vars(c, env) for c in cmd_str_or_list]
+				return [i for i in l if i]
+			else:
+				return None
+		except:
 			return None
 
 	def create_env(self, task_id, task_env):
-		_env = {}
-		_env.update(self.env)
-		if task_env != None:
-			_env.update(task_env)
+		try:
+			_env = {}
+			_env.update(self.env)
+			if task_env != None:
+				_env.update(task_env)
 
-		return _env
+			return _env
+		except:
+			return None
 
 	def create_process_handler(self, _id, _itm, _env):
 		return process_handler.StdoutHandler()
@@ -305,7 +314,13 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			self.active_work_item['error'] = "Invalid environment: " + str(_env)
 			return None
 
-		_handler = self.create_process_handler(_id, self.active_work_item, _env)
+		_handler = None
+		try:
+			_handler = self.create_process_handler(_id, self.active_work_item, _env)
+		except:
+			_handler = None
+			pass
+
 		if _handler == None:
 			self.active_work_item['error'] = "Failed to create process handler."
 			return None
