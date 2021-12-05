@@ -179,11 +179,17 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				
 			elif pid != None:
 				#process might be still running, go for the kill and wait for result
+				kill_warnings = None
 				try:
-					self.kill_process_with_pid(pid)
+					kill_warnings = self.kill_process_with_pid(pid)
 				except:
-					#kill failed for some reason
+					#kill failed for unknown reasonse
+					_, exc_value, _ = sys.exc_info()
+					kill_warnings = [str(exec_value)]
 					pass
+
+				if kill_warnings != None:
+					self.active_work_item.setdefault('warnings',[]).extend(kill_warnings)
 
 				self.work_lock.release()
 				f.wait()
@@ -194,21 +200,73 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		self.work_lock.release()
 		return data
 
-	def kill_process_with_pid(self, pid):
-		import psutil
-		p = None
+	def _kill_process_psutil(self, psutil, pid):
 		try:
+			#kill process tree, children first then parent
 			p = psutil.Process(pid)
-		except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
-			return
-
-		try:
 			for child in p.children(recursive=True):
 				child.kill()
-		except (psutil.AccessDenied, psutil.NoSuchProcess, OSError):
-				logs.log_warn('Failed to kill process child.')
-			
-		p.kill()
+			p.kill()
+			return None
+		except psutil.AccessDenied as e:
+			return str(e)
+		except psutil.NoSuchProcess as e:
+			return str(e)
+		except psutil.ZombieProcess as e:
+			return str(e)
+		except psutil.TimeoutExpired as e:
+			return str(e)
+		except OSError as e:
+			return str(e)
+		except:
+			return str(e)
+
+	def _kill_process_windows(self, pid):
+		#option 1:
+		#subprocess.call(['taskkill', '/F', '/T', '/PID', str(p.pid)])
+
+		#option 2
+		# http://mackeblog.blogspot.com/2012/05/killing-subprocesses-on-windows-in.html
+
+		return "No windows fallback for killing process " + str(pid);
+
+	def _kill_process_unix(self,pid):
+		#option 1:
+		#os.killpg()
+
+		#option 2:
+		#kill -9 -PID
+		
+		return "No unix fallback for killing process " + str(pid);
+
+	def _kill_process_linux(self,pid):
+		#option 1:
+		#kill -9 PID
+		
+		return "No linux fallback for killing process " + str(pid);
+		
+	def kill_process_with_pid(self, pid):
+		errors = []
+		try:
+			import psutil
+			ks = self._kill_process_psutil(psutil,pid)
+			if ks == None:
+				return
+			errors.append(ks)
+		except ImportError:
+			errors.append("Missing psutil; To install run `pip3 install psutil`.")
+
+		#try something else
+		ks = None
+		if sys.platform.startswith('win'):
+			ks = self._kill_process_windows(pid)
+		elif sys.platform.startswith('darwin'):
+			ks = self._kill_process_unix(pid)
+		else:
+			ks = self._kill_process_linux(pid)
+		if ks == None:
+			return None
+		return errors + [ks]
 
 	def _construct(self, _id):
 		_cmd = self.active_work_item.get('cmd',None)
@@ -273,7 +331,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				self.active_work_item['state'] = -1
 				self.active_work_item['error'] = "Invalid exit code {}".format(return_code)
 			elif stderr_lines != 0:
-				self.active_work_item['warning'] = "Error stream output {} lines.".format(stderr_lines)
+				self.active_work_item.setdefault('warnings',[]).append("stderr stream has {} lines.".format(stderr_lines))
 
 		except:
 			import traceback
@@ -325,6 +383,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		self.work_lock.acquire()
 		self.active_work_item['pid'] = process.pid
+		_handler.start(process.pid)
 		self.work_lock.release()
 
 		await asyncio.wait([

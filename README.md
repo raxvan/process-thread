@@ -4,7 +4,7 @@ Portable asynchronous process creation queue with streamed output (stdout,stderr
 
 ### Dependencies:
 
-- python3
+- python3.8+ (because of this: https://bugs.python.org/issue35621)
 - `psutil` for killing processes (imported only if a process needs to be killed)
 
 ### Tested on:
@@ -12,8 +12,8 @@ Portable asynchronous process creation queue with streamed output (stdout,stderr
 - windows 10
 - x86 ubuntu server
 - arm ubuntu server
-- arm raspbian os
 - x86 ubuntu docker container
+- arm raspbian os
 
 ## Basic Usage:
 
@@ -88,7 +88,6 @@ Additional data can be added and will be passed on to the handler when processes
 
 Some of the data from above 
 
-
 ### Important functions:
 
 - `ProcessQueue.push_back(self, id, data)` add process to queue
@@ -114,9 +113,13 @@ The environment for each process is added in order, first ProcessQueue env (adde
 - `_SHELL_OPT_` empty on windows, `_SHELL_EXT_` on anything else
 
 
-## TODO and improvements:
+## Improvements?:
 
-Considering to improve `_SHELL_` and `_SHELL_EXT_` support.
+- Considering to improve `_SHELL_` and `_SHELL_EXT_` support.
+- Fallback in case psutil is missing.
+- Add "memory profiling" option since we can get that data with psutil.
+
+
 
 
 

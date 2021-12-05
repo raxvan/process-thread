@@ -7,6 +7,9 @@ class ProcessHandler(object):
 	def info(self):
 		return type(self).__name__
 
+	def start(self, pid):
+		pass
+
 	def close(self, process_data):
 		pass
 
