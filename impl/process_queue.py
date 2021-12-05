@@ -121,7 +121,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		self.push_back_nocopy(_id, _item)
 
 		self.work_lock.acquire()
-		pid,data = self._wait_for_process(self,_id,_sleep_interval_fsec, f)
+		pid,data = self._wait_for_process(_id, _sleep_interval_fsec, f)
 		self.work_lock.release()
 
 		return pid,data

@@ -228,8 +228,8 @@ print("STREAMING TEST ----------------------------------------------------------
 posix_exe = os.path.join(_this_dir, "executable", "pqtest")
 win_exe = os.path.join(_this_dir, "executable", "Release", "pqtest.exe")
 if os.path.exists(posix_exe):
-	test_streaming(posix_exe)
+	test_streaming(os.path.abspath(posix_exe))
 elif os.path.exists(win_exe):
-	test_streaming(win_exe)
+	test_streaming(os.path.abspath(win_exe))
 else:
 	print("Missing executable...")
