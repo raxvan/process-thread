@@ -309,7 +309,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_cwd_base = self.active_work_item.get('cwd',None)
 		_env_base = self.active_work_item.get('env',None)
 
-		_env = self.create_env(_id, _env)
+		_env = self.create_env(_id, _env_base)
 		if _env == None:
 			self.active_work_item['error'] = "Invalid environment: " + str(_env_base)
 			return None
@@ -325,12 +325,12 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			self.active_work_item['error'] = "Failed to create process handler."
 			return None
 
-		_cwd = self.format_working_directory(_cwd, _env)
+		_cwd = self.format_working_directory(_cwd_base, _env)
 		if _cwd == None:
 			self.active_work_item['error'] = "Invalid working directory: " + str(_cwd_base)
 			return None
 
-		_cmd = self.format_command(_cmd, _env)
+		_cmd = self.format_command(_cmd_base, _env)
 		if _cmd == None:
 			self.active_work_item['error'] = "Invalid command: " + str(_cmd_base)
 			return None
