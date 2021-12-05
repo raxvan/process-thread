@@ -50,18 +50,22 @@ class ThreadedWorkQueue(object):
 
 		self.on_complete_listeners = {}
 
-
-				
 	def start(self):
+		self.work_lock.acquire()
 		self.thread_handle = threading.Thread(target=lambda e: e.thread_run_loop(), args=(self,), daemon=True)
 		self.thread_handle.start()
+		self.work_lock.release()
+
 
 	def stop(self):
+		self.work_lock.acquire()
+
 		if self.thread_handle == None:
+			self.work_lock.release()
 			return
 
 		#flush queue
-		self.work_lock.acquire()
+		
 		try:
 			while True:
 				_id = self.queue.get_nowait()
@@ -111,10 +115,12 @@ class ThreadedWorkQueue(object):
 		return result
 
 	def is_active(self):
-		if self.thread_handle == None:
-			return False
 
 		self.work_lock.acquire()
+		if self.thread_handle == None:
+			self.work_lock.release()
+			return False
+		
 		result = len(self.active_items)
 		self.work_lock.release()
 		if result > 0:
