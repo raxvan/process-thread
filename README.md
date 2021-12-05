@@ -24,7 +24,7 @@ q = ProcessQueue(root_dir, base_environment_vars_dict)
 q.start()
 
 process = {
-	"cmd" : ["powershell" script.cmd]
+	"cmd" : ["powershell", script.cmd]
 }
 q.push_back(id, process)
 q.wait_for_empty()

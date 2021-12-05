@@ -73,6 +73,7 @@ def test_start_stop():
 	q = process_queue.ProcessQueue(_this_dir, {})
 	q.start()
 	print_dict(q.create_env(-1,{}))
+	q.wait_for_process(0) #should immediatly return
 	q.stop()
 
 def test_missing_command():
@@ -106,7 +107,7 @@ def test_invalid_command():
 
 	q.start()
 
-	q.wait_for_empty()
+	q.wait_for_task_finished(0)
 
 	q.stop()
 
@@ -185,7 +186,7 @@ def test_kill():
 
 	q.stop()
 
-def stress_test(exe_path):
+def test_streaming(exe_path):
 	q = CustomQueue2(_this_dir, os.environ.copy())
 	q.start()	
 	_itm = {
@@ -196,11 +197,10 @@ def stress_test(exe_path):
 	while True:
 		o = q.stream_queue.get()
 		if o == None:
-			break;
+			break
 		print(o.decode("utf-8"), end='')
 		sys.stdout.flush()
 
-	q.wait_for_empty();
 	q.stop()
 
 print("TEST START-STOP ----------------------------------------------------------------------------")
@@ -220,10 +220,12 @@ test_wait_pid()
 print("TEST KILL ----------------------------------------------------------------------------------")
 test_kill()
 
-print("STRESS TEST --------------------------------------------------------------------------------")
-ep = os.path.join(_this_dir, "executable", "pqtest")
-if os.path.exists(ep):
-	stress_test(ep)
-ep = os.path.join(_this_dir, "executable", "Release", "pqtest.exe")
-if os.path.exists(ep):
-	stress_test(ep)
+print("STREAMING TEST -----------------------------------------------------------------------------")
+posix_exe = os.path.join(_this_dir, "executable", "pqtest")
+win_exe = os.path.join(_this_dir, "executable", "Release", "pqtest.exe")
+if os.path.exists(posix_exe):
+	test_streaming(posix_exe)
+elif os.path.exists(win_exe):
+	test_streaming(win_exe)
+else:
+	print("Missing executable...")
