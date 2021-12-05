@@ -143,7 +143,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 				if data == None:
 					data = f.data
-
+					
 		self.work_lock.release()
 		return (pid, data)
 

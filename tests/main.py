@@ -167,6 +167,9 @@ def test_wait_pid():
 	pid,_ = q.wait_for_process(1)
 	print("[PID] " + str(pid))
 
+	pid,_ = q.wait_for_process(3)
+	assert(pid == None)
+
 	q.stop()
 
 def test_kill():
