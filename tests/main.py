@@ -56,7 +56,7 @@ class CustomHandler2(process_handler.StdoutHandler):
 		self.queue.put(msg_buffer)
 
 	def close(self, process_data):
-		print("Done...")
+		print_dict(process_data)
 		self.queue.put(None)
 
 class CustomQueue2(process_queue.ProcessQueue):
@@ -70,7 +70,7 @@ class CustomQueue2(process_queue.ProcessQueue):
 #########################################################################################
 
 def test_start_stop():
-	q = process_queue.ProcessQueue(_this_dir, {})
+	q = process_queue.ProcessQueue("", {})
 	q.start()
 	print_dict(q.create_env(-1,{}))
 	q.wait_for_process(0) #should immediatly return
@@ -190,7 +190,7 @@ def test_kill():
 	q.stop()
 
 def test_streaming(exe_path):
-	q = CustomQueue2(_this_dir, os.environ.copy())
+	q = CustomQueue2(None, os.environ.copy())
 	q.start()	
 	_itm = {
 		"cmd" : [exe_path]

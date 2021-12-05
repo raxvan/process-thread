@@ -32,9 +32,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 	def __init__(self, workdir, env):
 		thread_worker_queue.ThreadedWorkQueue.__init__(self)
 
-		self.workdir = os.path.abspath(os.path.expandvars(workdir))
-
-		if self.workdir != None:
+		if workdir != None:
+			self.workdir = os.path.abspath(os.path.expandvars(workdir))
 			if self.workdir.endswith("\\\\"):
 				self.workdir = self.workdir[:-2]
 			if self.workdir.endswith("/") or self.workdir.endswith("\\"):
@@ -337,6 +336,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			return
 
 		_handler, _cwd, _cmd, _env = _exc
+
+		if _cwd == "":
+			_cwd = os.getcwd()
 
 		try:
 			_handler.put_status_line("command={}".format(" ".join(_cmd)))
