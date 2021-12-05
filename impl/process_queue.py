@@ -9,21 +9,18 @@ import asyncio
 import process_handler
 import thread_worker_queue
 
-async def _read_stdout_stream(stream, _handler):
-	while True:
-		line = await stream.readline()
-		if line:
-			_handler.stdout_linebuffer(line)
-		else:
-			break
+class StreamingProtocol(asyncio.SubprocessProtocol):
+	def __init__(self, _handler):
+		asyncio.SubprocessProtocol.__init__(self)
+		self.handler = _handler
 
-async def _read_stderr_stream(stream, _handler):
-	while True:
-		line = await stream.readline()
-		if line:
-			_handler.stderr_linebuffer(line)
-		else:
-			break
+	def pipe_data_received(self, fd, data):
+		if fd == 1:
+			self.handler.stdout_buffer(data)
+		elif fd == 2:
+			self.handler.stderr_buffer(data)
+		
+		#print(data.decode("utf-8"))
 
 def _expand_vars(value, env):
 	v = value.format(**env)
@@ -317,6 +314,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_handler, _cwd, _cmd, _env = _exc
 
 		try:
+			_handler.put_status_line("command={}".format(" ".join(_cmd)))
+			_handler.put_status_line("workdir={}".format(_cwd))
+
 			return_code = self._thread_execute_command_and_wait(
 				_cmd,
 				_cwd,
@@ -374,7 +374,10 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		thread_worker_queue.ThreadedWorkQueue.thread_run_loop(self)
 
-	async def _thread_stream_subprocess(self, _handler, _cmd, _cwd, _env):
+		self.loop.close();
+		self.loop = None
+
+	async def _asyncio_create_subprocess_exec(self, _handler, _cmd, _cwd, _env):
 		# kwargs of create_subprocess_exec: https://docs.python.org/3/library/subprocess.html#subprocess.Popen
 		process = await asyncio.create_subprocess_exec(
 			*_cmd,
@@ -387,27 +390,48 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_handler.put_status_line("pid={}".format(process.pid))
 
+		pid = process.pid
 		self.work_lock.acquire()
-		self.active_work_item['pid'] = process.pid
-		_handler.start(process.pid)
+		self.active_work_item['pid'] = pid
+		_handler.start(pid)
 		self.work_lock.release()
 
-		await asyncio.wait([
-			_read_stdout_stream(process.stdout, _handler),
-			_read_stderr_stream(process.stderr, _handler)
-		])
-		return await process.wait()
+		await asyncio.wait([_read_stdout_stream(process.stdout, _handler)])
+
+		#await asyncio.wait([_read_stderr_stream(process.stderr, _handler)])
+		return process.wait();
+
+	async def _asyncio_subprocess_exec(self, _handler, _cmd, _cwd, _env):
+		
+		transport, protocol = await self.loop.subprocess_exec(
+			lambda: StreamingProtocol(_handler),
+			*_cmd,
+			cwd=_cwd,
+			stdout=asyncio.subprocess.PIPE,
+			stderr=asyncio.subprocess.PIPE,
+			env=_env
+		)
+
+		pid = transport.get_pid()
+		self.work_lock.acquire()
+		self.active_work_item['pid'] = pid
+		_handler.start(pid)
+		self.work_lock.release()
+
+		rc = await transport._wait() #maybe replace with something else
+
+		transport.close()
+
+		return rc
 
 	def _thread_execute_command_and_wait(self, _cmd, _cwd, _env, _handler):
 
 		# https://docs.python.org/3/library/asyncio-protocol.html#asyncio-example-subprocess-proto
 		# https://stackoverflow.com/questions/24435987/how-to-stream-stdout-stderr-from-a-child-process-using-asyncio-and-obtain-its-e/24435988#24435988
-		_handler.put_status_line("command={}".format(" ".join(_cmd)))
-		_handler.put_status_line("workdir={}".format(_cwd))
-
 		start_time = time.time()
+
 		rc = self.loop.run_until_complete(
-			ProcessQueue._thread_stream_subprocess(
+			ProcessQueue._asyncio_subprocess_exec(
 				self,
 				_handler,
 				_cmd,
@@ -415,10 +439,10 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				_env
 			)
 		)
+
 		end_time = time.time()
-
 		_handler.put_status_line("time:{} seconds".format(end_time - start_time))
-
+		
 		return rc
 
 

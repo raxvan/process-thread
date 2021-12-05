@@ -2,6 +2,9 @@
 
 Portable asynchronous process creation queue with streamed output (stdout,stderr). For each queue, processes are started in order, one at a time (first one need to exit for the next one to start).
 
+For python3.8+ both both streams (stdout and stderr) are streamable using asyncio.
+For python versions below 3.8 
+
 ### Dependencies:
 
 - python3.8+ (because of this: https://bugs.python.org/issue35621)
@@ -120,6 +123,14 @@ The environment for each process is added in order, first ProcessQueue env (adde
 - Add "memory profiling" option since we can get that data with psutil.
 
 
+## References:
 
-
-
+- https://docs.python.org/3/library/subprocess.html#subprocess.Popen
+- https://docs.python.org/3/library/asyncio-protocol.html#asyncio-example-subprocess-proto
+- https://stackoverflow.com/questions/24435987/how-to-stream-stdout-stderr-from-a-child-process-using-asyncio-and-obtain-its-e/24435988#24435988
+- https://stackoverflow.com/questions/357315/how-to-get-list-of-arguments
+- https://stackoverflow.com/questions/18421757/live-output-from-subprocess-command
+- https://stackoverflow.com/questions/44633458/
+- https://bugs.python.org/issue35621
+- https://primes.utm.edu/lists/small/10000.txt
+- https://github.com/python/cpython/blob/main/Lib/asyncio/subprocess.py

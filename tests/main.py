@@ -2,6 +2,8 @@ import sys
 import os
 import json
 import time
+import threading
+import queue
 
 _this_dir = os.path.dirname(__file__)
 _impl_dir = os.path.abspath(os.path.join(_this_dir,"..","impl"))
@@ -34,6 +36,36 @@ class CustomQueue(process_queue.ProcessQueue):
 
 	def create_process_handler(self, _id, _itm, _env):
 		return CustomHandler(_itm.get("_print", True))
+
+#########################################################################################
+
+class CustomHandler2(process_handler.StdoutHandler):
+	def __init__(self, q):
+		process_handler.StdoutHandler.__init__(self)
+		self.queue = q
+
+	def put_status_line(self, msg_str):
+		print("#" + msg_str.rstrip().replace("\n","\n#"))
+
+	def stderr_buffer(self, msg_buffer):
+		#print(msg_buffer.decode("utf-8"), end='')
+		self.queue.put(msg_buffer)
+
+	def stdout_buffer(self, msg_buffer):
+		#print(msg_buffer.decode("utf-8"), end='')
+		self.queue.put(msg_buffer)
+
+	def close(self, process_data):
+		print("Done...")
+		self.queue.put(None)
+
+class CustomQueue2(process_queue.ProcessQueue):
+	def __init__(self, workdir, env):
+		process_queue.ProcessQueue.__init__(self, workdir, env)
+		self.stream_queue = queue.Queue()
+
+	def create_process_handler(self, _id, _itm, _env):
+		return CustomHandler2(self.stream_queue)
 
 #########################################################################################
 
@@ -103,6 +135,18 @@ def test_command_with_error():
 	q.wait_for_empty()
 	q.stop()
 
+def test_command_with_stderr():
+	q = CustomQueue(_this_dir, {})
+	q.start()	
+	_itm = {
+		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/stderr.{_SHELL_EXT_}","hello","world"]
+	}
+
+	q.push_back(0, _itm)
+
+	q.wait_for_empty()
+	q.stop()
+
 def test_wait_pid():
 	q = CustomQueue(_this_dir, os.environ.copy())
 	q.start()	
@@ -141,6 +185,24 @@ def test_kill():
 
 	q.stop()
 
+def stress_test(exe_path):
+	q = CustomQueue2(_this_dir, os.environ.copy())
+	q.start()	
+	_itm = {
+		"cmd" : [exe_path]
+	}
+	q.push_back(0, _itm)
+	
+	while True:
+		o = q.stream_queue.get()
+		if o == None:
+			break;
+		print(o.decode("utf-8"), end='')
+		sys.stdout.flush()
+
+	q.wait_for_empty();
+	q.stop()
+
 print("TEST START-STOP ----------------------------------------------------------------------------")
 test_start_stop()
 print("TEST MISSING COMMAND -----------------------------------------------------------------------")
@@ -151,7 +213,17 @@ print("TEST VALID COMMAND ------------------------------------------------------
 test_valid_command()
 print("TEST VALID COMMAND THAT FAILS --------------------------------------------------------------")
 test_command_with_error()
+print("TEST STDERR STREAM -------------------------------------------------------------------------")
+test_command_with_stderr()
 print("TEST WAIT FOR PID --------------------------------------------------------------------------")
 test_wait_pid()
 print("TEST KILL ----------------------------------------------------------------------------------")
 test_kill()
+
+print("STRESS TEST --------------------------------------------------------------------------------")
+ep = os.path.join(_this_dir, "executable", "pqtest")
+if os.path.exists(ep):
+	stress_test(ep)
+ep = os.path.join(_this_dir, "executable", "Release", "pqtest.exe")
+if os.path.exists(ep):
+	stress_test(ep)
