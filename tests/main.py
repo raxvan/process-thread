@@ -75,6 +75,15 @@ def test_start_stop():
 	print_dict(q.create_env(-1,{}))
 	q.wait_for_process(0) #should immediatly return
 	q.stop()
+	for i in range(3):
+		q.start()
+		_itm = {
+			"_print" : False,
+			"cmd" : ["{_SHELL_OPT_}","{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
+		}
+		q.push_back(0, _itm)
+		q.wait_for_empty()
+		q.stop()
 
 def test_missing_command():
 	q = process_queue.ProcessQueue(_this_dir, {})
