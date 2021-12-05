@@ -107,11 +107,28 @@ class ThreadedWorkQueue(object):
 
 		return result
 
+	def is_active(slf):
+		if self.thread_handle == None:
+			return False
+
+		self.work_lock.acquire()
+		result = len(self.active_items)
+		self.work_lock.release()
+		if result > 0:
+			return True
+
+		return False
+
 	def prepare_task_data(self, _id, _itm):
 		return None
 
 	def execute_active_task(self, _id):
 		pass
+
+	def add_listener(self, _id, efunc):
+		self.work_lock.acquire()
+		self.on_complete_listeners.setdefault(_id,[]).append(efunc)
+		self.work_lock.release()
 
 	def add_listener_locked(self, _id, e):
 		ln = lambda _id, _itm: e.notify(_id, _itm)
