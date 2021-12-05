@@ -305,13 +305,13 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		return errors + [ks]
 
 	def _construct(self, _id):
-		_cmd = self.active_work_item.get('cmd',None)
-		_cwd = self.active_work_item.get('cwd',None)
-		_env = self.active_work_item.get('env',None)
+		_cmd_base = self.active_work_item.get('cmd',None)
+		_cwd_base = self.active_work_item.get('cwd',None)
+		_env_base = self.active_work_item.get('env',None)
 
 		_env = self.create_env(_id, _env)
 		if _env == None:
-			self.active_work_item['error'] = "Invalid environment: " + str(_env)
+			self.active_work_item['error'] = "Invalid environment: " + str(_env_base)
 			return None
 
 		_handler = None
@@ -327,12 +327,12 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_cwd = self.format_working_directory(_cwd, _env)
 		if _cwd == None:
-			self.active_work_item['error'] = "Invalid working directory: " + str(_cwd)
+			self.active_work_item['error'] = "Invalid working directory: " + str(_cwd_base)
 			return None
 
 		_cmd = self.format_command(_cmd, _env)
 		if _cmd == None:
-			self.active_work_item['error'] = "Invalid command: " + str(_cmd)
+			self.active_work_item['error'] = "Invalid command: " + str(_cmd_base)
 			return None
 
 		_env["_ID_"] = str(_id)
