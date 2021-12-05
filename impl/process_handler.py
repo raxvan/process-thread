@@ -1,6 +1,6 @@
 
 
-class ProcessHandler(object):
+class EmptyProcessHandler(object):
 	def __init__(self):
 		pass
 
@@ -27,7 +27,7 @@ class ProcessHandler(object):
 
 
 
-class StdoutHandler(ProcessHandler):
+class StdoutHandler(EmptyProcessHandler):
 	def __init__(self):
 		self.stderr_count = 0;
 

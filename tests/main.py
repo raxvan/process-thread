@@ -195,7 +195,8 @@ def test_streaming(exe_path):
 	_itm = {
 		"cmd" : [exe_path]
 	}
-	q.push_back(0, _itm)
+	pid,data = q.push_back_and_wait_for_process(0, _itm)
+	print_dict(data)
 	
 	while True:
 		o = q.stream_queue.get()

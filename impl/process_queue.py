@@ -109,6 +109,23 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		
 		self.push_back_nocopy(_id, _item)
 
+	def push_back_and_wait_for_process(self, _id, _item, _sleep_interval_fsec = 0.25):
+		_item['state'] = 0
+		_item['time-queue'] = self.get_task_timepoint()
+		
+		self.work_lock.acquire()
+		f = thread_worker_queue.TaskFuture()
+		self.add_listener_locked(_id, f) #in case the process stoppes immediatly
+		self.work_lock.release()
+
+		self.push_back_nocopy(_id, _item)
+
+		self.work_lock.acquire()
+		pid,data = self._wait_for_process(self,_id,_sleep_interval_fsec, f)
+		self.work_lock.release()
+
+		return pid,data
+
 	def prepare_task(self, _id, _item):
 		_item_copy = copy.deepcopy(_item)
 		_item_copy['state'] = 1
@@ -116,34 +133,42 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		
 		return _item_copy
 
+	def _wait_for_process(self, _id, _sleep_interval_fsec, _future):
+		pid =  None
+		data = None
+
+		while _id in self.active_items:
+			if self.active_work_id == _id:
+				pid = self.active_work_item.get("pid",None)
+				data = copy.deepcopy(self.active_work_item)
+				if pid != None:
+					break;
+
+			self.work_lock.release()
+			time.sleep(_sleep_interval_fsec)
+			self.work_lock.acquire()
+
+		if _future.data != None:
+			if pid == None:
+				pid = _future.data.get('pid',None)
+
+			if data == None:
+				data = _future.data
+
+		return pid,data
+
+
 	#wait until process with _id has started and has a pid
 	def wait_for_process(self, _id, _sleep_interval_fsec = 0.25):
 		pid = None
 		data = None
 		self.work_lock.acquire()
+
 		if _id in self.active_items:
 			f = thread_worker_queue.TaskFuture()
 			self.add_listener_locked(_id, f) #in case the process stoppes immediatly
+			pid,data = self._wait_for_process(_id,_sleep_interval_fsec, f)
 
-			
-			while _id in self.active_items:
-				if self.active_work_id == _id:
-					pid = self.active_work_item.get("pid",None)
-					data = copy.deepcopy(self.active_work_item)
-					if pid != None:
-						break;
-
-				self.work_lock.release()
-				time.sleep(_sleep_interval_fsec)
-				self.work_lock.acquire()
-
-			if f.data != None:
-				if pid == None:
-					pid = f.data.get('pid',None)
-
-				if data == None:
-					data = f.data
-					
 		self.work_lock.release()
 		return (pid, data)
 
