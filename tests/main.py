@@ -208,8 +208,10 @@ def test_streaming(exe_path):
 	q = CustomQueue2(None, os.environ.copy())
 	q.start()	
 	_itm = {
+		"delay" : 5,
 		"cmd" : [exe_path]
 	}
+	print("queue process...")
 	pid,data = q.push_back_and_wait_for_process(0, _itm)
 	print_dict(data)
 	

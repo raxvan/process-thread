@@ -308,6 +308,14 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_cmd_base = self.active_work_item.get('cmd',None)
 		_cwd_base = self.active_work_item.get('cwd',None)
 		_env_base = self.active_work_item.get('env',None)
+		_delay_base = self.active_work_item.get('delay',None)
+		_delay = _delay_base
+		try:
+			if _delay != None:
+				_delay = float(_delay)
+		except:
+			self.active_work_item['error'] = "Invalid parameter delay: " + str(_delay_base)
+			pass
 
 		_env = self.create_env(_id, _env_base)
 		if _env == None:
@@ -316,6 +324,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_handler = None
 		try:
+			if _delay != None:
+				_delay = int(_delay)
 			_handler = self.create_process_handler(_id, self.active_work_item, _env)
 		except:
 			_handler = None
@@ -339,7 +349,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_env["_WORKDIR_"] = str(_cwd)
 		_env["_HANDLER_"] = _handler.info()
 
-		return (_handler, _cwd, _cmd, _env)
+		return (_handler, _cwd, _cmd, _env, _delay)
 
 	def execute_active_task(self, _id):
 
@@ -350,7 +360,10 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		if _exc == None:
 			return
 
-		_handler, _cwd, _cmd, _env = _exc
+		_handler, _cwd, _cmd, _env, _delay = _exc
+
+		if _delay != None:
+			time.sleep(_delay)
 
 		if _cwd == "":
 			_cwd = os.getcwd()
