@@ -19,6 +19,8 @@ def create_env():
 	}
 
 def print_dict(d):
+	if d == None:
+		return print("None")
 	print(json.dumps(d, sort_keys=True, indent=4))
 
 class CustomHandler(process_handler.StdoutHandler):
@@ -200,18 +202,22 @@ def test_kill():
 	q = CustomQueue(_this_dir, os.environ.copy())
 	q.start()	
 	_itm = {
-		"_print" : False,
+		"_print" : True,
 		"env" : {
-			"SLEEP_SECONDS" : "50"
+			"SLEEP_SECONDS" : "10"
 		},
 		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/wait.{_SHELL_EXT_}"]
 	}
-
 	h = q.push_back(0, _itm)
 	time.sleep(1.0)
-	print_dict(q.remove_or_kill(0))
+	q.remove_or_kill(0)
+
+	h = q.push_back(1, _itm)
+
+	q.push_back(2, _itm)
 
 	q.stop()
+
 
 def test_streaming(exe_path):
 	q = CustomQueue2(None, os.environ.copy())
@@ -250,12 +256,13 @@ test_wait_pid()
 print("TEST KILL ----------------------------------------------------------------------------------")
 test_kill()
 
+
 print("STREAMING TEST -----------------------------------------------------------------------------")
 posix_exe = os.path.join(_this_dir, "executable", "pqtest")
 win_exe = os.path.join(_this_dir, "executable", "Release", "pqtest.exe")
-if os.path.exists(posix_exe):
+if os.path.exists(posix_exe) and not sys.platform.startswith('win'):
 	test_streaming(os.path.abspath(posix_exe))
-elif os.path.exists(win_exe):
+elif os.path.exists(win_exe) and sys.platform.startswith('win'):
 	test_streaming(os.path.abspath(win_exe))
 else:
 	print("Missing executable...")

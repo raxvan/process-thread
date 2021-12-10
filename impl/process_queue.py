@@ -20,8 +20,6 @@ class StreamingProtocol(asyncio.SubprocessProtocol):
 		elif fd == 2:
 			self.handler.stderr_buffer(data)
 		
-		#print(data.decode("utf-8"))
-
 def _expand_vars(value, env):
 	v = value.format(**env)
 	if v == "":
@@ -117,7 +115,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_handler = self.create_process_handler(_id, _item)
 
-		self.add(_id, _item, _handler)
+		if self.add(_id, _item, _handler) == False:
+			return None
 		return _handler
 
 	#returns the task data
@@ -139,32 +138,43 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 			_pid = _handler.pid()
 
-			ctx = self.acquire_active_context()
-			
-			ctx.setdefault('warnings',[]).append("Initiated process termination.")
-
-			kill_warnings = None
-			if _pid != None:
-				#process might be still running, go for the kill and wait for result
-				try:
-					kill_warnings = self.kill_process_with_pid(_pid)
-				except:
-					#kill failed for unknown reasonse
-					_, exc_value, _ = sys.exc_info()
-					kill_warnings = [str(exc_value)]
-					pass
-
-				if kill_warnings != None:
-					ctx.setdefault('warnings',[]).extend(kill_warnings)
-
-			self.release_active_context(ctx)
-			if kill_warnings != None:
+			if(self._kill_active_process(_pid) == False):
 				#failed to kill the process, might as whell just exit quickly
 				return None
 
 		return _handler.wait()
 
+	def _stop_active_task(self, _id):
+		_handler = self.payload[_id]
+		self.work_lock.release()
+		_pid = _handler.pid()
+		self._kill_active_process(_pid)
+		self.work_lock.acquire()
+
+	def _kill_active_process(self, _pid):
+		ctx = self.acquire_active_context()
 		
+		ctx.setdefault('warnings',[]).append("Process scheduled for termination.")
+
+		kill_warnings = None
+	
+		#process might be still running, go for the kill and wait for result
+		try:
+			kill_warnings = self.kill_process_with_pid(_pid)
+		except:
+			#kill failed for unknown reasonse
+			_, exc_value, _ = sys.exc_info()
+			kill_warnings = [str(exc_value)]
+			pass
+
+		if kill_warnings != None:
+			ctx.setdefault('warnings',[]).extend(kill_warnings)
+
+		self.release_active_context(ctx)
+		
+		if kill_warnings == None:
+			return True
+		return False
 
 	def _kill_process_psutil(self, psutil, pid):
 		try:

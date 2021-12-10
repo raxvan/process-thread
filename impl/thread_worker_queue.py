@@ -55,6 +55,48 @@ class ThreadedWorkQueue(object):
 		self.thread_handle.start()
 		self.work_lock.release()
 
+
+
+	def _stop_active_task(self, _id):
+		pass
+
+	def stop(self):
+		self.work_lock.acquire()
+
+		if self.thread_handle == None:
+			self.work_lock.release()
+			return
+
+		#flush queue
+		_tasks = self.tasks
+		_payload = self.payload
+
+		self.tasks = {}
+		self.payload = {}
+		
+		self.queue.put(None)
+		if self.context_id != None:
+			self.tasks[self.context_id] = _tasks[self.context_id]
+			self.payload[self.context_id] = _payload[self.context_id]
+			del _tasks[self.context_id]
+			del _payload[self.context_id]
+			self._stop_active_task(self.context_id)
+
+		for i,v in _tasks.items():
+			self._task_removed(i, copy.deepcopy(v), _payload[i])
+
+		self.work_lock.release()
+
+		self.thread_handle.join()
+		self.thread_handle = None
+
+	#discard a queued item, item must not be started, if it's started then discard will fail
+	def remove(self, _id):
+		self.work_lock.acquire()
+		if _id != self.context_id:
+			self._try_remove_task(_id)
+		self.work_lock.release()
+	
 	def _task_removed(self, _id, _data, _payload):
 		pass
 
@@ -66,41 +108,12 @@ class ThreadedWorkQueue(object):
 			del self.tasks[_id]
 			del self.payload[_id]
 
-			self._task_removed(_id, data, _p)
-
-	def stop(self):
-		self.work_lock.acquire()
-
-		if self.thread_handle == None:
-			self.work_lock.release()
-			return
-
-		#flush queue
-		try:
-			while True:
-				_id = self.queue.get_nowait()
-				self._try_remove_task(_id)
-				
-		except queue.Empty:
-			pass
-		self.work_lock.release()
-
-		#push empty task and wait for shutdown
-		self.queue.put(None)
-		self.thread_handle.join()
-		self.thread_handle = None
-
-	#discard a queued item, item must not be started, if it's started then discard will fail
-	def remove(self, _id):
-		self.work_lock.acquire()
-		if _id != self.context_id:
-			self._try_remove_task(_id)
-		self.work_lock.release()
+			self._task_removed(_id, copy.deepcopy(data), _p)
 
 	#add item to queue
 	def add(self, _id, _item_dict, _payload):
 		self.work_lock.acquire()
-		if _id in self.tasks:
+		if self.tasks == None or _id in self.tasks:
 			self.work_lock.release()
 			return False
 		
@@ -208,7 +221,6 @@ class ThreadedWorkQueue(object):
 
 			self.work_lock.acquire()
 			_item = self.tasks.get(_id,None)
-
 			if _item != None:
 				_work_item_copy, _exec_payload = self.prepare_task(_id, _item)
 				self.context_id = _id

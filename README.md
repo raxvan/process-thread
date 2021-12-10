@@ -2,6 +2,10 @@
 
 Portable asynchronous process creation queue with streamed output (stdout,stderr). For each queue, processes are started in order, one at a time (first one need to exit for the next one to start).
 
+## Instruments:
+
+- `web` simple http server that allows web control of a queue
+
 ### Dependencies:
 
 - python3.8+ (because of this: https://bugs.python.org/issue35621)
@@ -94,9 +98,13 @@ Some of the data from above
 - `ProcessQueue.remove_or_kill(self, id)` remove process from queue, or kill if the process started. Returns process data
 - `ProcessQueue.remove(self, id)` removes a process from queue if it's not started
 - `ProcessQueue.query_items(self)` returns a dictionary (key is id, value is process data) of the active state of the queue
-- `ProcessQueue.wait_for_empty(self)` wait for queue to be empty
+- `ProcessQueue.wait(self)` wait for queue to be empty
 - `ProcessQueue.create_process_handler(self, id, process_data)` overritable function when you want to create a custom handler (see process_handler.py and tests)
 - `ProcessQueue.start/stop(self)` start and stop the queue thread. `stop` flushes the queue and waits for the active process to complete
+
+- `handler.pid()` wait for process to start and returns pid. Returns none if process is removed from queue
+- `handler.wait()` wait for process to end, returns process data.
+- 
 
 ### Environment variables
 
