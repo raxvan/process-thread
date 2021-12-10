@@ -90,14 +90,12 @@ Some of the data from above
 
 ### Important functions:
 
-- `ProcessQueue.push_back(self, id, data)` add process to queue
-- `ProcessQueue.wait_for_process(self, id, _sleep_interval_fsec = 0.25)` will wait until the process actually started, will return (pid,process_data)
-- `ProcessQueue.remove_or_kill(self, id, _sleep_interval_fsec = 0.25)` remove process from queue, or kill if the process started. Returns process data
+- `ProcessQueue.push_back(self, id, data)` add process to queue, returns handler
+- `ProcessQueue.remove_or_kill(self, id)` remove process from queue, or kill if the process started. Returns process data
 - `ProcessQueue.remove(self, id)` removes a process from queue if it's not started
 - `ProcessQueue.query_items(self)` returns a dictionary (key is id, value is process data) of the active state of the queue
-- `ProcessQueue.wait_for_task_finished(self, id)` wait for a certain process to be completed, returns process data
 - `ProcessQueue.wait_for_empty(self)` wait for queue to be empty
-- `ProcessQueue.create_process_handler(self, id, process, env_dict)` overritable function when you want to create a custom handler (see process_handler.py and tests)
+- `ProcessQueue.create_process_handler(self, id, process_data)` overritable function when you want to create a custom handler (see process_handler.py and tests)
 - `ProcessQueue.start/stop(self)` start and stop the queue thread. `stop` flushes the queue and waits for the active process to complete
 
 ### Environment variables

@@ -5,15 +5,12 @@ import queue
 
 class SingleTaskListener():
 	def __init__(self):
-		self.data = None
 		self.ev = threading.Event()
 
 	def wait(self):
 		self.ev.wait()
 
 	def notify(self, _id, _data):
-		if(_data != None):
-			self.data = copy.deepcopy(_data)
 		self.ev.set()
 
 class MultipleTaskListener():
@@ -44,11 +41,13 @@ class ThreadedWorkQueue(object):
 
 		self.thread_handle = None
 		self.work_lock = threading.Lock()
-		self.active_items = {}
-		self.active_work_id = None
-		self.active_work_item = None
+		self.tasks = {}
+		self.payload = {}
 
-		self.on_complete_listeners = {}
+		self.context_id = None
+		self.context_copy = None
+
+		self.listeners = None
 
 	def start(self):
 		self.work_lock.acquire()
@@ -56,6 +55,18 @@ class ThreadedWorkQueue(object):
 		self.thread_handle.start()
 		self.work_lock.release()
 
+	def _task_removed(self, _id, _data, _payload):
+		pass
+
+	def _try_remove_task(self, _id):
+		data = self.tasks.get(_id,None)
+		if data != None:
+			_p = self.payload[_id]
+
+			del self.tasks[_id]
+			del self.payload[_id]
+
+			self._task_removed(_id, data, _p)
 
 	def stop(self):
 		self.work_lock.acquire()
@@ -65,16 +76,11 @@ class ThreadedWorkQueue(object):
 			return
 
 		#flush queue
-		
 		try:
 			while True:
 				_id = self.queue.get_nowait()
-				del self.active_items[_id]
-				l = self.on_complete_listeners.get(_id,None)
-				if l != None:
-					del self.on_complete_listeners[_id]
-					for func in l:
-						_func(_id, None)
+				self._try_remove_task(_id)
+				
 		except queue.Empty:
 			pass
 		self.work_lock.release()
@@ -87,19 +93,19 @@ class ThreadedWorkQueue(object):
 	#discard a queued item, item must not be started, if it's started then discard will fail
 	def remove(self, _id):
 		self.work_lock.acquire()
-		if _id != self.active_work_id:
-			_item = self.active_items.get(_id,None)
-			if _item != None:
-				del self.active_items[_id]
+		if _id != self.context_id:
+			self._try_remove_task(_id)
 		self.work_lock.release()
 
 	#add item to queue
-	def push_back_nocopy(self, _id, _item_dict):
+	def add(self, _id, _item_dict, _payload):
 		self.work_lock.acquire()
-		if _id in self.active_items:
+		if _id in self.tasks:
 			self.work_lock.release()
-			return False	
-		self.active_items[_id] = _item_dict
+			return False
+		
+		self.tasks[_id] = _item_dict
+		self.payload[_id] = _payload
 		self.work_lock.release()
 
 		self.queue.put(_id)
@@ -107,80 +113,91 @@ class ThreadedWorkQueue(object):
 
 	def query_items(self):
 		self.work_lock.acquire()
-		result = copy.deepcopy(self.active_items)
-		if self.active_work_item != None:
-			result[self.active_work_id] = copy.deepcopy(self.active_work_item)
+		result = copy.deepcopy(self.tasks)
+		if self.context_copy != None:
+			result[self.context_id] = copy.deepcopy(self.context_copy)
 		self.work_lock.release()
 
 		return result
 
-	def is_active(self):
+	def query_status(self):
+		
+		status = None
+		tasks = None
+		active = None
 
+		self.work_lock.acquire()
+
+		if (self.thread_handle != None):
+			status = "active"
+		else:
+			status = "inactive"
+
+		tasks = copy.deepcopy(self.tasks)
+
+		if self.context_copy != None:
+			active = copy.deepcopy(self.context_copy)
+
+		self.work_lock.release()
+
+		return {
+			"status" : status,
+			"queue" : tasks,
+			"active" : active
+		}
+
+	def is_active(self):
 		self.work_lock.acquire()
 		if self.thread_handle == None:
 			self.work_lock.release()
 			return False
 		
-		result = len(self.active_items)
+		result = len(self.tasks)
 		self.work_lock.release()
 		if result > 0:
 			return True
 
 		return False
 
-	def prepare_task_data(self, _id, _itm):
-		return None
-
-	def execute_active_task(self, _id):
-		pass
-
-	def add_listener(self, _id, efunc):
+	def wait(self):
 		self.work_lock.acquire()
-		self.on_complete_listeners.setdefault(_id,[]).append(efunc)
-		self.work_lock.release()
-
-	def add_listener_locked(self, _id, e):
-		ln = lambda _id, _itm: e.notify(_id, _itm)
-		self.on_complete_listeners.setdefault(_id,[]).append(ln)
-		
-	def wait_for_task_finished(self, _id):
-		self.work_lock.acquire()
-		if _id in self.active_items:
-			e = SingleTaskListener()
-			self.add_listener_locked(_id, e)
-			self.work_lock.release()
-			e.wait()
-			return e.data
-
-		self.work_lock.release()
-		return None
-
-	def wait_for_empty(self):
-		self.work_lock.acquire()
-		sz = len(self.active_items)
+		sz = len(self.tasks)
 		if sz > 0:
-			#keep waiting
-			e = MultipleTaskListener(sz)
-			for k, v in self.active_items.items():
-				self.add_listener_locked(k, e)
+			ev = threading.Event()
+			func = lambda: ev.set()
+			if self.listeners == None:
+				self.listeners = [func]
+			else:
+				self.listeners.append(func)
 
 			self.work_lock.release()
-			e.wait()
-			return
+			ev.wait()
+			return;
 			
 		self.work_lock.release()
 
 	def prepare_task(self, _id, _itm):
-		return copy.deepcopy(_itm)
+		return copy.deepcopy(_itm), self.payload.get(_id, None)
 
-	def task_finished(self, _id, _itm_copy):
-		#notify listeners
-		l = self.on_complete_listeners.get(_id,None)
-		if l != None:
-			del self.on_complete_listeners[_id]
+	def execute_active_task(self, _id, _payload):
+		pass
+
+	def task_finished(self, _id, _task_copy, _payload):
+		del self.tasks[_id]
+		del self.payload[_id]
+
+		if len(self.tasks) == 0 and self.listeners != None:
+			l = self.listeners
+			self.listeners = None
 			for func in l:
-				func(_id, _itm_copy)
+				func()
 
+	def acquire_active_context(self):
+		self.work_lock.acquire()
+		return self.context_copy
+
+	def release_active_context(self, _ctx):
+		self.work_lock.release()
 
 	def thread_run_loop(self):
 		
@@ -190,25 +207,21 @@ class ThreadedWorkQueue(object):
 				break
 
 			self.work_lock.acquire()
-			_item = self.active_items.get(_id,None)
+			_item = self.tasks.get(_id,None)
 
 			if _item != None:
-				_work_item_copy = self.prepare_task(_id, _item)
-				self.active_work_id = _id
-				self.active_work_item = _work_item_copy
+				_work_item_copy, _exec_payload = self.prepare_task(_id, _item)
+				self.context_id = _id
+				self.context_copy = _work_item_copy
 				self.work_lock.release()
 				
-				self.execute_active_task(_id)
+				self.execute_active_task(_id, _exec_payload)
 				
 				self.work_lock.acquire()
-				self.active_work_id = None
-				self.active_work_item = None
+				self.context_id = None
+				self.context_copy = None
 				
-				if _id in self.active_items:
-					#item with _id could be deleted by a stop()
-					del self.active_items[_id]
-
-				self.task_finished(_id, _work_item_copy)
+				self.task_finished(_id, _work_item_copy, _exec_payload)
 				
 			#else: item could be removed before it was processed
 

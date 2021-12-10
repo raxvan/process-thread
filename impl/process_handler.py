@@ -1,23 +1,47 @@
 
+import sys
+import threading
 
 class EmptyProcessHandler(object):
 	def __init__(self):
-		pass
+		self._pid = None
+		self._data = None
+
+		self._pid_ready = threading.Event()
+		self._data_ready = threading.Event()
 
 	def info(self):
 		return type(self).__name__
 
-	def start(self, pid):
-		pass
+	#called when item is ready for execution
+	def init(self, data):
+		return True
 
-	def close(self, process_data):
-		pass
+	#called when we have pid
+	def start(self, pid):
+		self._pid = pid
+		self._pid_ready.set()
+
+	#called when process terminates.
+	def close(self, process_data, completed):
+		if self._pid == None:
+			self._pid_ready.set()
+
+		self._data = process_data
+		self._data_ready.set()
 
 	def stderr_lines_count(self):
 		return 0
-
 	def put_status_line(self, msg_str):
 		pass
+
+	def pid(self):
+		self._pid_ready.wait()
+		return self._pid
+
+	def wait(self):
+		self._data_ready.wait()
+		return self._data
 
 	#careful with this 2 functions, the callee is not from the realm of the living. 
 	def stderr_buffer(self, msg_buffer):
@@ -29,17 +53,22 @@ class EmptyProcessHandler(object):
 
 class StdoutHandler(EmptyProcessHandler):
 	def __init__(self):
+		EmptyProcessHandler.__init__(self)
 		self.stderr_count = 0;
 
 	def stderr_lines_count(self):
 		return self.stderr_count
 
 	def put_status_line(self, msg_str):
-		print("#" + msg_str.rstrip().replace("\n","\n#"))
+		sys.stdout.write("#" + msg_str.rstrip().replace("\n","\n#") + "\n")
 
 	def stderr_buffer(self, msg_buffer):
 		self.stderr_count += 1
-		print("*" + msg_buffer.decode("utf-8").rstrip().replace("\n","\n*"))
+		m = msg_buffer.decode("utf-8").rstrip()
+		if m:
+			sys.stdout.write("*" + m.rstrip().replace("\n","\n*") + "\n")
 
 	def stdout_buffer(self, msg_buffer):
-		print(">" + msg_buffer.decode("utf-8").rstrip().replace("\n","\n>"))
+		m = msg_buffer.decode("utf-8").rstrip()
+		if m:
+			sys.stdout.write(">" + m.replace("\n","\n>") + "\n")
