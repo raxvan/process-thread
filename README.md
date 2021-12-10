@@ -4,7 +4,7 @@ Portable asynchronous process creation queue with streamed output (stdout,stderr
 
 ## Instruments:
 
-- `web` simple http server that allows web control of a queue
+- `web` simple http server that allows web control of a queue.
 
 ### Dependencies:
 
@@ -66,13 +66,10 @@ Additional data can be added and will be passed on to the handler when processes
     "stderr": 0,
     	#^ number of lines in stderr stream
 
-    "final": {
-        "cmd": ...,
-        "cwd": ...,
-        "env": { ... }
-         #^ final command, working directory and environment that was used to spawn the process
+    "params": 
+        #^ final command, working directory and environment that was used to spawn the process
          #note that you can use {_ENV_VAR_} to expand from `env` in cmd or cwd
-    },
+         
     "pid": 123,
     #^ process id if the process actually started
     "state": -1,
