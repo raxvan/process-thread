@@ -1,88 +1,55 @@
 import http.server
-import threading
-import time
-import json
-# import BaseHTTPRequestHandler, HTTPServer
-
+import process_queue_server_actions
 
 class RequestHandler(http.server.BaseHTTPRequestHandler):
 
-	def __init__(self, qcontext, request, client_address, server):
-		self.qcontext = qcontext
-		http.server.BaseHTTPRequestHandler.__init__(self, request, client_address, server)
-
-	def _begin_response_200(self):
-		self.send_response(200)
-		#self.send_header('Content-type', 'text/html')
-		self.send_header('Content-type', 'application/json')
-		self.end_headers()
-
 	def do_GET(self):
-		result = self.qcontext.get_request(self.path)
+		self.server.execute_get_request(self)
 
-		self._begin_response_200()
-		if(result != None):
-			self.wfile.write(json.dumps(result).encode('utf-8'))
-
-	def do_POST(self):
-		content_length = int(self.headers['Content-Length'])
-		post_data = self.rfile.read(content_length)
-
-		result = self.qcontext.post_request(self.path, post_data.decode('utf-8'))
-
-		self._begin_response_200()
-		if(result != None):
-			self.wfile.write(json.dumps(result).encode('utf-8'))
+	#def do_POST(self):
+	#	content_length = int(self.headers['Content-Length'])
+	#	post_data = self.rfile.read(content_length)
+	#	result = self.server.execute_post_request(self.path, post_data.decode('utf-8'))
+	#	self._begin_response_200()
+	#	if(result != None):
+	#		self.wfile.write(json.dumps(result).encode('utf-8'))
 
 
-class ProcessQueueServer():
-	def __init__(self, q, port):
-		self.queue = q
-		self.port = int(port)
+class QuitException(Exception):
+	pass
 
-		self.thread_handle = threading.Thread(target=lambda e: e.thread_run_loop(), args=(self,), daemon=True)
-		self.thread_handle.start()
+class ProcessQueueServer(http.server.HTTPServer):
+	def __init__(self, q, address):
+		self.running = 0
+		http.server.HTTPServer.__init__(self,address, RequestHandler)
 
-		self.server_handler = None
-		self.server_ready = threading.Event()
+		self.get_active_items = process_queue_server_actions.GetActiveItems(q)
+		self.get_status = process_queue_server_actions.GetStatus(q)
 
-	def shutdown(self):
-		self.server_ready.wait()
-		time.sleep(0.5)
-		self.server_handler.shutdown()
-		# https://docs.python.org/3/library/socketserver.html#socketserver.BaseServer.shutdown
-		# ^ shutdown can deadlock
+	def service_actions(self):
+		if self.running == 1:
+			self.running = 1
+			raise QuitException()
 
-	def get_request(self, req_path):
-		if req_path == "/i":
-			return self.queue.query_items()
-		elif req_path == "/s":
-			return self.queue.query_status()
-		elif req_path == "/q":
-			self.shutdown()
-			return None
+	def execute_get_request(self, handler):
+		if handler.path == "/q":
+			self.running = 1
+		elif handler.path == "/i":
+			self.get_active_items.run(handler)
+		elif handler.path == "/s":
+			self.get_status.run(handler)
+		else:
+			handler.send_error(404, "Invalid.")
 
-		return None
+	#def execute_post_request(self, req_path, data):
+	#	return "echo: " + str(data)
 
-	def post_request(self, req_path, data):
-		return "hello world " + str(data)
-
-	def thread_run_loop(self):
-		server_address = ('', self.port)
-		request_handler = lambda request, client_address, server: RequestHandler(self, request, client_address, server)
-		
-		self.server_handler = http.server.ThreadingHTTPServer(server_address, request_handler)
-			
+	def run(self):
 		try:
-			self.server_ready.set()
-			self.server_handler.serve_forever(poll_interval=1.0)
-			self.server_ready.clear()
+			self.serve_forever()
 		except KeyboardInterrupt:
-			pass
-
-		self.server_handler.server_close()
-		self.server_handler = None
-
-		self.queue.stop()
-
-
+			self.server_close()
+		except SystemExit:
+			self.server_close()
+		except QuitException:
+			self.server_close()

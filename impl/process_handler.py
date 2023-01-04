@@ -28,6 +28,8 @@ class EmptyProcessHandler(object):
 			self._pid_ready.set()
 
 		self._data = process_data
+		if self._pid != None:
+			self._data['pid'] = self._pid
 		self._data_ready.set()
 
 	def stderr_lines_count(self):
@@ -72,3 +74,4 @@ class StdoutHandler(EmptyProcessHandler):
 		m = msg_buffer.decode("utf-8").rstrip()
 		if m:
 			sys.stdout.write(">" + m.replace("\n","\n>") + "\n")
+

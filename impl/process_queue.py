@@ -43,7 +43,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		self.env = env
 		self.loop = None
 
-		self.env['_PROCESS_ROOT_DIR_'] = self.workdir
+		self.env['_ROOT_WORKDIR_'] = self.workdir
 
 		if sys.platform.startswith('win'):
 			self.env['_SHELL_EXT_'] = "cmd"
@@ -55,6 +55,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			self.env['_SHELL_'] = "/bin/bash"
 
 			self.env['_SHELL_OPT_'] = self.env['_SHELL_']
+
+	def working_directory(self):
+		return self.workdir
 
 	def format_working_directory(self, path_str_or_list, env):
 		try:
@@ -112,6 +115,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 	def push_back(self, _id, _item):
 		_item['state'] = 0
 		_item['time-queue'] = self.get_task_timepoint()
+		_item['id'] = _id
 
 		_handler = self.create_process_handler(_id, _item)
 
@@ -199,12 +203,17 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 	def _kill_process_windows(self, pid):
 		#option 1:
-		#subprocess.call(['taskkill', '/F', '/T', '/PID', str(p.pid)])
+		import subprocess
+		subprocess.call(['taskkill', '/F', '/T', '/PID', str(pid)])
+		return "using taskkill"
 
 		#option 2
 		# http://mackeblog.blogspot.com/2012/05/killing-subprocesses-on-windows-in.html
 
-		return "No windows fallback for killing process " + str(pid);
+		#import process_kill_windows
+		#process_kill_windows.killsubprocesses(pid);
+
+		#return "No windows fallback for killing process " + str(pid);
 
 	def _kill_process_unix(self,pid):
 		#option 1:
@@ -300,7 +309,15 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_cwd, _cmd, _env, _delay = _ctx
 
+		_icopy["exec"] = {
+			"cwd" : _cwd,
+			"cmd" : _cmd,
+			"env" : _env,
+			"delay" : _delay
+		}
+
 		try:
+
 			if _handler.init(_icopy) == False:
 				_icopy['error'] = "Failed to initalize handler."
 				return _icopy, (_handler, None)
@@ -379,9 +396,14 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		if 'error' in _task_copy:
 			_task_copy['state'] = -1
 
-		if params != None:
-			#_cwd, _cmd, _env, _delay = params
-			_task_copy["params"] = params
+		#if params != None:
+		#	_cwd, _cmd, _env, _delay = params
+		#	_task_copy["params"] = {
+		#		"cwd" : _cwd,
+		#		"cmd" : _cmd,
+		#		"env" : _env,
+		#		"delay" : _delay
+		#	}
 		_handler.close(_task_copy, True)
 
 		thread_worker_queue.ThreadedWorkQueue.task_finished(self, _id, _task_copy, _payload)

@@ -91,7 +91,7 @@ def test_start_stop():
 		q.start()
 		_itm = {
 			"_print" : False,
-			"cmd" : ["{_SHELL_OPT_}","{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
+			"cmd" : ["{_SHELL_OPT_}","{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
 		}
 		q.push_back(0, _itm)
 		assert(q.is_active() == True)
@@ -138,7 +138,7 @@ def test_valid_command():
 	q.start()	
 	_itm = {
 		"_print" : False,
-		"cmd" : ["{_SHELL_OPT_}","{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
+		"cmd" : ["{_SHELL_OPT_}","{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/hello_world.{_SHELL_EXT_}"]
 	}
 
 	q.push_back(0, _itm)
@@ -151,7 +151,7 @@ def test_command_with_error():
 
 	q.start()	
 	_itm = {
-		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/exit_code.{_SHELL_EXT_}"]
+		"cmd" : ["{_SHELL_OPT_}", "{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/exit_code.{_SHELL_EXT_}"]
 	}
 
 	q.push_back(0, _itm)
@@ -163,7 +163,7 @@ def test_command_with_stderr():
 	q = CustomQueue(_this_dir, {})
 	q.start()	
 	_itm = {
-		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/stderr.{_SHELL_EXT_}","hello","world"]
+		"cmd" : ["{_SHELL_OPT_}", "{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/stderr.{_SHELL_EXT_}","hello","world"]
 	}
 
 	q.push_back(0, _itm)
@@ -179,7 +179,7 @@ def test_wait_pid():
 		"env" : {
 			"SLEEP_SECONDS" : "2"
 		},
-		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/wait.{_SHELL_EXT_}"]
+		"cmd" : ["{_SHELL_OPT_}", "{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/wait.{_SHELL_EXT_}"]
 	}
 
 	h0 = q.push_back(0, _itm)
@@ -206,7 +206,7 @@ def test_kill():
 		"env" : {
 			"SLEEP_SECONDS" : "10"
 		},
-		"cmd" : ["{_SHELL_OPT_}", "{_PROCESS_ROOT_DIR_}/scripts_{_SHELL_EXT_}/wait.{_SHELL_EXT_}"]
+		"cmd" : ["{_SHELL_OPT_}", "{_ROOT_WORKDIR_}/scripts_{_SHELL_EXT_}/wait.{_SHELL_EXT_}"]
 	}
 	h = q.push_back(0, _itm)
 	time.sleep(1.0)

@@ -5,6 +5,7 @@ Portable asynchronous process creation queue with streamed output (stdout,stderr
 ## Instruments:
 
 - `web` simple http server that allows web control of a queue.
+- `exec` configurable utility for running processes
 
 ### Dependencies:
 
@@ -110,7 +111,7 @@ The environment for each process is added in order, first ProcessQueue env (adde
 - `_ID_` the process id passed to `push_back`
 - `_WORKDIR_` the current working directory when the process starts
 - `_HANDLER_` class name of the handler
-- `_PROCESS_ROOT_DIR_` process queue root directory (passed to ProcessQueue constructor)
+- `_ROOT_WORKDIR_` process queue working directory (passed to ProcessQueue constructor)
 - `_SHELL_` proffered shell, on windows this is `powershell`, on everything else is `/bin/bash`
 - `_SHELL_EXT_` on windows this is `cmd`, on everything else it's `sh`
 - `_SHELL_OPT_` empty on windows, `_SHELL_EXT_` on anything else
