@@ -48,7 +48,7 @@ class CustomQueue(process_queue.ProcessQueue):
 def main(args):
 	jobs = args.ifile['jobs']
 
-	workdir = ""
+	workdir = os.path.abspath(args.workdir)
 	env = os.environ.copy()
 
 	q = CustomQueue(workdir, env, args.debug)
@@ -82,13 +82,19 @@ def is_valid_file(parser, arg):
 			parser.error("Invalid json %s!" % arg)
 			return None
 
+def dir_path(string):
+    if os.path.isdir(string):
+        return string
+    else:
+        raise Exception(string + " is not a directory!")
 
 if __name__ == "__main__":
 	user_arguments = sys.argv[1:]
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--debug', dest='debug', action='store_true')
-	parser.add_argument("ifile", help="Input Json file", metavar="FILE", type=lambda x: is_valid_file(parser, x))
+	parser.add_argument('workdir', help="path to working directory", metavar="PATH", type=dir_path)
+	parser.add_argument("ifile", help="json file jobs description", metavar="FILE", type=lambda x: is_valid_file(parser, x))
 
 	args = parser.parse_args(user_arguments)
 	main(args)

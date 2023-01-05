@@ -38,7 +38,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				self.workdir = self.workdir[:-1]
 
 		else:
-			self.workdir = ""
+			self.workdir = os.getcwd()
 		
 		self.env = env
 		self.loop = None
@@ -65,7 +65,12 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 				return self.workdir
 
 			if isinstance(path_str_or_list, str):
-				path_str_or_list = os.path.join(self.workdir, _expand_vars(path_str_or_list, env))
+				expv = _expand_vars(path_str_or_list, env);
+				absolute_path = os.path.abspath(expv)
+				if self.workdir in absolute_path:
+					path_str_or_list = absolute_path
+				else:
+					path_str_or_list = os.path.join(self.workdir, expv)
 
 			elif isinstance(path_str_or_list, list):
 				l = [_expand_vars(p, env) for p in path_str_or_list]
