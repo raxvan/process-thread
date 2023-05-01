@@ -133,18 +133,40 @@ class ThreadedWorkQueue(object):
 
 		return result
 
+	def query_short_status(self):
+
+		running = False
+		tasks_count = None
+		active = False
+
+		self.work_lock.acquire()
+
+		if (self.thread_handle != None):
+			running = True
+
+		tasks_count = len(self.tasks)
+
+		if self.context_copy != None:
+			active = True
+
+		self.work_lock.release()
+
+		return {
+			"alive" : running,
+			"queue-size" : tasks_count,
+			"working" : active
+		}
+
 	def query_status(self):
 		
-		status = None
+		running = False
 		tasks = None
 		active = None
 
 		self.work_lock.acquire()
 
 		if (self.thread_handle != None):
-			status = "active"
-		else:
-			status = "inactive"
+			status = True
 
 		tasks = copy.deepcopy(self.tasks)
 
@@ -154,7 +176,7 @@ class ThreadedWorkQueue(object):
 		self.work_lock.release()
 
 		return {
-			"status" : status,
+			"alive" : status,
 			"queue" : tasks,
 			"active" : active
 		}
