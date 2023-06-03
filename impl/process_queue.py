@@ -350,8 +350,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		ctx = None
 		try:
-			_handler.put_status_line("command={}".format(" ".join(_cmd)))
-			_handler.put_status_line("workdir={}".format(_cwd))
+			_handler.put_status_line("command={}\n".format(" ".join(_cmd)))
+			_handler.put_status_line("workdir={}\n".format(_cwd))
 
 			return_code, duration = self._thread_execute_command_and_wait(
 				_cmd,
@@ -361,9 +361,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			)
 
 			stderr_lines = _handler.stderr_lines_count()
-			_handler.put_status_line("duration:{} seconds".format(duration))
-			_handler.put_status_line("stderr:{} lines".format(stderr_lines))
-			_handler.put_status_line("exit-code:{}".format(int(return_code)))
+			_handler.put_status_line("duration:{} seconds\n".format(duration))
+			_handler.put_status_line("stderr:{} lines\n".format(stderr_lines))
+			_handler.put_status_line("exit-code:{}\n".format(int(return_code)))
 
 			ctx = self.acquire_active_context()
 
@@ -383,10 +383,10 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			import traceback
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 
-			_handler.put_status_line("INTERNAL ERROR:" + str(exc_type) + " INFO:" + str(exc_value))
+			_handler.put_status_line(f"INTERNAL ERROR:{str(exc_type)} INFO:{str(exc_value)}")
 			el = traceback.format_exception(exc_type, exc_value, exc_traceback)
 			for e in el:
-				_handler.put_status_line("\t" + e)
+				_handler.put_status_line(f"\t{e}\n")
 
 			ctx = self.acquire_active_context()
 			ctx['error'] = str(exc_value)
