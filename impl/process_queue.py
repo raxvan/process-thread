@@ -124,7 +124,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		_handler = self.create_process_handler(_id, _item)
 
-		if self.add(_id, _item, _handler) == False:
+		if self.add(_item['id'], _item, _handler) == False:
 			return None
 		return _handler
 
@@ -291,7 +291,7 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			return None
 
 		_env["_ID_"] = str(_id)
-		_env["_WORKDIR_"] = str(_cwd)
+		_env["_CWD_"] = str(_cwd)
 		_env["_HANDLER_"] = _handler.info()
 
 		return (_cwd, _cmd, _env, _delay)

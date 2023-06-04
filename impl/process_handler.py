@@ -75,3 +75,5 @@ class StdoutHandler(EmptyProcessHandler):
 		if m:
 			sys.stdout.write(">" + m.replace("\n","\n>") + "\n")
 
+	def set_item_id(_itm, value):
+		_itm['id'] = value
