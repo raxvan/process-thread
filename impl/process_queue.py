@@ -26,6 +26,18 @@ def _expand_vars(value, env):
 		return None
 	return v
 
+def _format_delay(key, item):
+	_delay = item.get(key, None)
+	if _delay == None:
+		return None
+
+	try:
+		return float(_delay)
+	except:
+		item.setdefault('warnings',[]).append("Invalid parameter delay: " + str(_delay))
+
+	return None
+
 class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 	def __init__(self, workdir, env):
 		thread_worker_queue.ThreadedWorkQueue.__init__(self)
@@ -95,6 +107,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			if isinstance(cmd_str_or_list, list):
 				l = [_expand_vars(c, env) for c in cmd_str_or_list]
 				return [i for i in l if i]
+			if isinstance(cmd_str_or_list, str):
+				return cmd_str_or_list
 			else:
 				return None
 		except:
@@ -259,17 +273,27 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		errors.append(ks)
 		return errors
 
-	def _construct(self, _id, _data, _handler):
+	def _construct_native(self, _id, _data, _handler):
+		_func = _data.get('func',None)
+		_args = _data.get('args',None)
+		_delay_start = _format_delay('wait-start', _data)
+		_delay_end = _format_delay('wait-end', _data)
+
+		_data["function"] = {
+			"name" : _func,
+			"args" : _args,
+			"wait-start" : _delay_start,
+			"wait-end" : _delay_end,
+		}
+
+		return (_func, _args, _delay_start, _delay_end)
+
+	def _construct_external(self, _id, _data, _handler):
 		_cmd_base = _data.get('cmd',None)
 		_cwd_base = _data.get('cwd',None)
 		_env_base = _data.get('env',None)
-		_delay_base = _data.get('delay',None)
-		_delay = _delay_base
-		try:
-			if _delay != None:
-				_delay = float(_delay)
-		except:
-			_data.setdefault('warnings',[]).append("Invalid parameter delay: " + str(_delay_base))
+		_delay_start = _format_delay('wait-start', _data)
+		_delay_end = _format_delay('wait-end', _data)
 
 		_env = self.create_env(_id, _env_base)
 		if _env == None:
@@ -294,7 +318,15 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_env["_CWD_"] = str(_cwd)
 		_env["_HANDLER_"] = _handler.info()
 
-		return (_cwd, _cmd, _env, _delay)
+		_data["process"] = {
+			"cwd" : _cwd,
+			"cmd" : _cmd,
+			"env" : _env,
+			"wait-start" : _delay_start,
+			"wait-end" : _delay_end,
+		}
+
+		return (_cwd, _cmd, _env, _delay_start, _delay_end)
 
 	def _task_removed(self, _id, _data, _payload):
 
@@ -308,57 +340,55 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_icopy['state'] = 1
 		_icopy['time-start'] = self.get_task_timepoint()
 
-		_ctx = self._construct(_id, _icopy, _handler)
+		_native = _icopy.get("native", False)
+
+		_ctx = None
+		if _native:
+			_ctx = self._construct_native(_id, _icopy, _handler)
+		else:
+			_ctx = self._construct_external(_id, _icopy, _handler)
+
 		if _ctx == None:
-			return _icopy, (_handler, None)
-
-		_cwd, _cmd, _env, _delay = _ctx
-
-		_icopy["exec"] = {
-			"cwd" : _cwd,
-			"cmd" : _cmd,
-			"env" : _env,
-			"delay" : _delay
-		}
+			return _icopy, None
 
 		try:
 
 			if _handler.init(_icopy) == False:
 				_icopy['error'] = "Failed to initalize handler."
-				return _icopy, (_handler, None)
+				return _icopy, None
 		except:
 			_icopy['error'] = "Handler initalization failed."
-			return _icopy, (_handler, None)
+			return _icopy, None
 
-		return _icopy, (_handler, (_cwd, _cmd, _env, _delay))
+		return _icopy, (_handler, _native, _ctx)
 
 	def execute_active_task(self, _id, _payload):
 
-		_handler, params = _payload
-
-		if params == None:
+		if _payload == None:
 			return
 
-		_cwd, _cmd, _env, _delay = params
+		(_handler, _native, _ctx) = _payload
 
-		if _delay != None:
-			time.sleep(_delay)
-
-		_system_cwd = os.getcwd()
-		if _cwd == "":
-			_cwd = _system_cwd
-
+		_system_cwd = None 
 		ctx = None
-		try:
-			_handler.put_status_line("command={}\n".format(" ".join(_cmd)))
-			_handler.put_status_line("workdir={}\n".format(_cwd))
 
-			return_code, duration = self._thread_execute_command_and_wait(
-				_cmd,
-				_cwd,
-				_env,
-				_handler
-			)
+		try:
+			exec_result = None
+			if _native:
+				exec_result = self._thread_execute_native_task(
+					_ctx,
+					_handler
+				)
+
+			else:
+				_system_cwd = os.getcwd()
+				exec_result = self._thread_execute_command_and_wait(
+					_ctx,
+					_system_cwd,
+					_handler
+				)
+
+			return_code, duration = exec_result
 
 			stderr_lines = _handler.stderr_lines_count()
 			_handler.put_status_line("duration:{} seconds\n".format(duration))
@@ -392,7 +422,8 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 			ctx['error'] = str(exc_value)
 			self.release_active_context(ctx)
 
-		os.chdir(_system_cwd)
+		if _system_cwd != None:
+			os.chdir(_system_cwd)
 
 	def task_finished(self, _id, _task_copy, _payload):
 		_handler, params = _payload
@@ -412,6 +443,9 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		_handler.close(_task_copy, True)
 
 		thread_worker_queue.ThreadedWorkQueue.task_finished(self, _id, _task_copy, _payload)
+
+	def execute_internal_task(self, _cmd, _args, _handler):
+		pass
 
 	def thread_run_loop(self):
 		self.loop = None
@@ -472,7 +506,19 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 
 		return rc
 
-	def _thread_execute_command_and_wait(self, _cmd, _cwd, _env, _handler):
+	def _thread_execute_command_and_wait(self, _ctx, _system_cwd, _handler):
+
+		(_cwd, _cmd, _env, _delay_start, _delay_end) = _ctx
+
+		if _cwd == "":
+			_cwd = _system_cwd
+
+		_handler.put_status_line("command={}\n".format(" ".join(_cmd)))
+		_handler.put_status_line("workdir={}\n".format(_cwd))
+
+		if (_delay_start != None):
+			_handler.put_status_line(f"wait={_delay_start}\n")
+			time.sleep(_delay_start)
 
 		# https://docs.python.org/3/library/asyncio-protocol.html#asyncio-example-subprocess-proto
 		# https://stackoverflow.com/questions/24435987/how-to-stream-stdout-stderr-from-a-child-process-using-asyncio-and-obtain-its-e/24435988#24435988
@@ -489,7 +535,41 @@ class ProcessQueue(thread_worker_queue.ThreadedWorkQueue):
 		)
 
 		duration = time.time() - start_time
+
+		if (_delay_end != None):
+			_handler.put_status_line(f"wait={_delay_end}\n")
+			time.sleep(_delay_end)
 		
 		return rc, duration
+
+	def _thread_execute_native_task(self, _ctx, _handler):
+
+		(_func, _args, _delay_start, _delay_end) = _ctx
+
+		_handler.put_status_line(f"function={_func}\n")
+
+		if (_delay_start != None):
+			_handler.put_status_line(f"wait={_delay_start}\n")
+			time.sleep(_delay_start)
+
+		start_time = time.time()
+
+		result = 0
+		try:
+			self.execute_internal_task(_func, _args, _handler)
+		except Exception as e:
+			_handler.stderr_buffer(f"Exception: {e}".encode("utf-8"))
+			result = -1
+		except:
+			_handler.stderr_buffer(f"Unknown exception!".encode("utf-8"))
+			result = -2
+
+		duration = time.time() - start_time
+
+		if (_delay_end != None):
+			_handler.put_status_line(f"wait={_delay_end}\n")
+			time.sleep(_delay_end)
+		
+		return result, duration
 
 

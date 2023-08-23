@@ -77,3 +77,5 @@ class StdoutHandler(EmptyProcessHandler):
 
 	def set_item_id(_itm, value):
 		_itm['id'] = value
+
+
