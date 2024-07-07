@@ -1,5 +1,0 @@
-cmake_minimum_required(VERSION 3.16)
-project(pqtest)
-find_package(Threads)
-add_executable (pqtest main.cpp)
-target_link_libraries(pqtest ${CMAKE_THREAD_LIBS_INIT})
