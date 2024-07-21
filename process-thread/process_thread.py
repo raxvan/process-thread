@@ -45,6 +45,12 @@ class ProcessState():
 		self.processReturned.wait()
 		return self.returnCode, self.error
 
+	def kill(self):
+		self.processStarted.wait()
+		if self.pid == None:
+			return
+
+		return _kill_process_with_pid(self.pid)
 
 	async def _asyncio_subprocess_exec(self, loop):
 			
@@ -69,17 +75,12 @@ class ProcessState():
 
 		transport.close()
 
-	def failedWithException(self, err):
+	def _on_failed_with_exception(self, err):
 		self.error = err
 		self.processStarted.set()
 		self.processReturned.set()
 
-	def kill(self):
-		self.processStarted.wait()
-		if self.pid == None:
-			return
 
-		return _kill_process_with_pid(self.pid)
 
 ################################################################################################
 
@@ -151,7 +152,7 @@ class ProcessThread():
 				error_message += f"{stri} : {e}\n"
 				index += 1
 
-			state.failedWithException(error_message)
+			state._on_failed_with_exception(error_message)
 
 			if self.onProcessError != None:
 				self.onProcessError(state)

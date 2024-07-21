@@ -35,3 +35,18 @@ else:
 
 h.join()
 
+#start second time
+p = h.start(
+	cmd = ["pwd"],
+	cwd = ".",
+	env = {}
+)
+
+rc, error = p.waitForExit()
+
+if error != None:
+	print(error)
+else:
+	print(f"DONE:{rc}")
+
+h.join()
