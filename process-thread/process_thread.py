@@ -52,8 +52,7 @@ class ProcessState():
 
 		return _kill_process_with_pid(self.pid)
 
-	async def _asyncio_subprocess_exec(self, loop):
-			
+	async def _asyncio_subprocess_exec(self, loop, onProcessStart):
 		transport, protocol = await loop.subprocess_exec(
 			lambda: StreamingProtocol(self.stdhandlers),
 			*self.command,
@@ -69,6 +68,9 @@ class ProcessState():
 		self.pid = pid
 		self.processStarted.set()
 
+		if onProcessStart != None:
+			onProcessStart(self)
+
 		rc = await transport._wait() #maybe replace with something else
 
 		self.returnCode = rc
@@ -80,6 +82,8 @@ class ProcessState():
 		self.processStarted.set()
 		self.processReturned.set()
 
+	def _on_execution_finished(self):
+		self.processReturned.set()
 
 
 ################################################################################################
@@ -93,9 +97,9 @@ class ProcessThread():
 
 		self.onStdout = None
 		self.onStderr = None
-		self.onProcessStart = None
-		self.onProcessEnd = None
-		self.onProcessError = None
+		self.onProcessStart = None #called when the process has pid
+		self.onProcessEnd = None #when exited
+		self.onProcessError = None #when error
 
 	def start(self, cmd, cwd, env):
 		state = ProcessState(cmd, cwd, env, (self.onStdout, self.onStderr))
@@ -127,18 +131,17 @@ class ProcessThread():
 
 			# https://docs.python.org/3/library/asyncio-protocol.html#asyncio-example-subprocess-proto
 			# https://stackoverflow.com/questions/24435987/how-to-stream-stdout-stderr-from-a-child-process-using-asyncio-and-obtain-its-e/24435988#24435988
-			
-			if self.onProcessStart != None:
-				self.onProcessStart(state)
 
 			loop.run_until_complete(
-				state._asyncio_subprocess_exec(loop)
+				state._asyncio_subprocess_exec(loop, self.onProcessStart)
 			)
+
+			state.processReturned.set()
+
+			state._on_execution_finished()
 
 			if self.onProcessEnd != None:
 				self.onProcessEnd(state)
-
-			state.processReturned.set()
 
 		except:
 			import traceback
