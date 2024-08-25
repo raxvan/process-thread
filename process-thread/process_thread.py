@@ -5,6 +5,7 @@ import sys
 import queue
 import asyncio
 import threading
+import traceback
 
 ################################################################################################
 
@@ -85,7 +86,6 @@ class ProcessState():
 	def _on_execution_finished(self):
 		self.processReturned.set()
 
-
 ################################################################################################
 
 class ProcessThread():
@@ -128,7 +128,6 @@ class ProcessThread():
 
 	def _run_state(self, loop, state):
 		try:
-
 			# https://docs.python.org/3/library/asyncio-protocol.html#asyncio-example-subprocess-proto
 			# https://stackoverflow.com/questions/24435987/how-to-stream-stdout-stderr-from-a-child-process-using-asyncio-and-obtain-its-e/24435988#24435988
 
@@ -144,7 +143,6 @@ class ProcessThread():
 				self.onProcessEnd(state)
 
 		except:
-			import traceback
 			exc_type, exc_value, exc_traceback = sys.exc_info()
 
 			error_message = f"ERROR:{str(exc_type)}\nINFO:{str(exc_value)}\nCALLSTACK:\n"
